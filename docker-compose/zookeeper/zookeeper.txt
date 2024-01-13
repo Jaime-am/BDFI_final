@@ -1,0 +1,2 @@
+# Docker de zookeeper
+docker run -h zookeeper -p 2181:2181 --name zookeeper wurstmeister/zookeeper

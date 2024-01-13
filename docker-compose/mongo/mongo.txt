@@ -1,0 +1,73 @@
+# Docker de mongo
+# hacemos el pull de la imagen una vez y asi lo tenemos ya descargado
+docker pull mongo
+
+# creamos contenedor
+# -d = detached mode (&disown)
+docker run --name fbid_mongo -d mongo
+
+# comprobamos que esta en la tabla de docker stats
+docker stats --no-stream
+
+# acceder al contenedor para comprobar que tiene "mongoimport" (si tiene) y para apuntar la version que es (4.4.2)
+docker exec -it fbid_mongo bash
+
+# comprobar la etiqueta :latest para que la podamos fijar y nunca de problemas
+
+# opcion 1: a ver si el creador lo ha puesto en los metadatos de la imagen
+# anotamos el imageID
+docker images
+# requiere jq y colocar el imageID en <<IMAGE_ID>>
+docker image inspect --format '{{json .}}' "<<IMAGE_ID>>" | jq -r '. | {Id: .Id, Digest: .Digest, RepoDigests: .RepoDigests, Labels: .Config.Labels}'
+
+# opcion 2: irnos a "view possible tags" en dockerhub, ver cual es la ID de la latest y ver cual tiene el mismo
+
+
+# opcion 3: existe un script que te hace la opcion 2 "automaticamente"
+git clone https://github.com/ryandaniels/docker-script-find-latest-image-tag.git
+# en algun momento veremos aparecere por pantalla el "latest". si no, aumenta el limit (-l)
+cd docker-script-find-latest-image-tag/
+./docker_image_find_tag.sh -n <<NOMBRE_IMAGEN>> -i <<IMAGE_ID>> -l 10
+# el script te muestra a que tags se refiere la id que le has dicho, de manera que en algun momento SUPUESTAMENTE tendras que ver la latest y otra mas, ea pues esa otra es a la que se refiere la latest
+
+# en nuestro caso, es mongo:4.4.2
+# por eso a partir de ahora vamos a usar mejor los siguientes comandos
+
+#################
+# COMANDO FINAL #
+#################
+docker run --name mongo -p 27017:27017 mongo:4.4.2
+
+###############
+# PARA FEDEAR #
+###############
+./import_distances.sh 
+
+
+################################################
+# VAMOS A HACER UN DOCKERFILE QUE HAGA DE SEED #
+################################################
++-------------------------------START DOCKERFILE-------------------------------+
+# DOCKER DE UN MONGO QUE FEEDEA AL OTRO MONGO
+#
+# FICHEROS NECESARIOS: origin_dest_distances.jsonl
+
+# Imagen padre
+FROM mongo:4.4.2
+
+# Copia el json en el WORKDIR
+COPY origin_dest_distances.jsonl .
+COPY import_distances.sh .
+
+# Importamos al mongo
+CMD ./import_distances.sh
++--------------------------------END DOCKERFILE--------------------------------+
+
+# para construir la imagen
+docker build -t fbid_mongo_seed:latest .
+
+# para instanciar contenedor
+docker run --name fbid_mongo_seed -d fbid_mongo_seed
+
+
+

@@ -1,0 +1,6 @@
+
+docker build -t jlmendo11/flask2 .
+
+docker run --name flask -p 5000:5000 jlmendo11/flask2
+
+docker exec -ti flask bash

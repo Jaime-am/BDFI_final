@@ -1,0 +1,2 @@
+docker build -t jlmendo11/mongo_seed .
+
