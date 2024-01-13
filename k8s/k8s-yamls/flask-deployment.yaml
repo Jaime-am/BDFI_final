@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: flask
+  name: flask
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: flask
+  template:
+    metadata:
+      labels:
+        io.kompose.service: flask
+    spec:
+      containers:
+      - image: jlmendo11/flask2
+        imagePullPolicy: ""
+        name: flask
+        ports:
+        - containerPort: 5000
+        - containerPort: 9200
+        resources: {}
+      hostname: flask
+      restartPolicy: Always
