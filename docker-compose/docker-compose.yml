@@ -1,0 +1,137 @@
+version: "3"
+services:
+  zookeeper:
+    container_name: zookeeper
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+    hostname: zookeeper
+    networks:
+      - red1
+
+  kafka:
+    container_name: kafka
+    image: wurstmeister/kafka:2.12-2.3.0
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    hostname: kafka
+    environment:
+      # KAFKA_ADVERTISED_HOST_NAME: kafka
+      # KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # KAFKA_CREATE_TOPICS: "flight_delay_classification_request:1:1"
+      # KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka:9092,OUTSIDE://localhost:9094
+      # KAFKA_LISTENERS: INSIDE://:9092,OUTSIDE://:9094
+      # KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      # KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+
+      # KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      # KAFKA_LISTENERS: PLAINTEXT://kafka:9092
+      # KAFKA_CREATE_TOPICS: "flight_delay_classification_request:1:1"
+      # KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CREATE_TOPICS: "flight_delay_classification_request:1:1"
+    networks:
+      - red1
+    
+  mongo:
+    container_name: mongo
+    image: mongo:6.0.10
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongo:/app
+    hostname: mongo
+    networks:
+      - red1
+  
+  init-mongo:
+    image: mongo:6.0.10
+    restart: "no"
+    depends_on:
+      - mongo
+    entrypoint: ["/mongo-init.sh"]
+    volumes:
+      - ./mongo/mongo-init.sh:/mongo-init.sh
+      - ./mongo/origin_dest_distances.jsonl:/origin_dest_distances.jsonl
+    networks:
+      - red1
+
+  cassandra:
+    container_name: cassandra
+    image: cassandra:4.1.0
+    ports:
+      - "9042:9042"
+    hostname: cassandra
+    networks:
+      - red1
+
+  init-cassandra:
+    image: cassandra:4.1.0
+    restart: "no"
+    depends_on:
+      - cassandra
+    entrypoint: ["/cassandra-init.sh"]
+    volumes:
+      - ./cassandra/cassandra-init.sh:/cassandra-init.sh
+    networks:
+      - red1
+
+  spark:
+    image: bde2020/spark-master:3.3.0-hadoop3.3
+    container_name: spark
+    ports:
+      - "7077:7077"
+    depends_on:
+      - zookeeper
+      - kafka
+      - init-mongo
+      - init-cassandra
+    hostname: spark
+    volumes:
+      - ./spark3:/app
+    command:
+      - "/spark/bin/spark-submit"
+      - "--class"
+      - "es.upm.dit.ging.predictor.MakePrediction"
+      - "--packages"
+      - "org.mongodb.spark:mongo-spark-connector_2.12:10.1.1,com.datastax.spark:spark-cassandra-connector_2.12:3.4.1,org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.0"
+      - "/app/scala-2.12/flight_prediction_2.12-0.1.jar"
+    networks:
+      - red1
+
+  flask:
+    container_name: flask
+    image: miigotu/python3.11:latest
+    ports:
+      - "5000:5000"
+      - "9200:9200"
+    depends_on:
+      - init-mongo
+      - spark
+      - init-cassandra
+    hostname: flask
+    volumes:
+      - ./flask2/necessary_files/web:/web
+    environment:
+      PROJECT_HOME: "/web"
+      SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL: "True"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        pip install -r /web/requirements.txt
+        echo 'Esperando 30 segs'
+        sleep 30
+        echo 'Terminaron los 30 segs'
+        python3 /web/predict_flask.py
+    networks:
+      - red1
+
+networks:
+  red1:
+    driver : bridge
