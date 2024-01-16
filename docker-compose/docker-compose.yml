@@ -89,8 +89,12 @@ services:
     depends_on:
       - zookeeper
       - kafka
+      - docker-init-mongo-1
+      - docker-init-cassandra-1
       - init-mongo
       - init-cassandra
+      - mongo
+      - cassandra
     hostname: spark
     volumes:
       - ./spark3:/app
