@@ -95,6 +95,8 @@ services:
     volumes:
       - ./spark3:/app
     command:
+      - "sleep 90"
+      - "&&"
       - "/spark/bin/spark-submit"
       - "--class"
       - "es.upm.dit.ging.predictor.MakePrediction"
