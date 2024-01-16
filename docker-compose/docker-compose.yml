@@ -125,9 +125,9 @@ services:
       - -c
       - |
         pip install -r /web/requirements.txt
-        echo 'Esperando 30 segs'
-        sleep 30
-        echo 'Terminaron los 30 segs'
+        echo 'Esperando 60 segs'
+        sleep 60
+        echo 'Terminaron los 60 segs'
         python3 /web/predict_flask.py
     networks:
       - red1
